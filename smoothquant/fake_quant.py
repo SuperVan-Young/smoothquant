@@ -105,6 +105,11 @@ class W8A8Linear(nn.Module):
         q_x = self.act_quant(x)
         y = torch.functional.F.linear(q_x, self.weight, self.bias)
         q_y = self.output_quant(y)
+
+        # Stochastic Computing: we introduce error term in all linear layers
+        # error = torch.normal(1, 0.1, size=q_y.shape, device=q_y.device, dtype=q_y.dtype)
+        # q_y = q_y * error
+
         return q_y
 
     @staticmethod
