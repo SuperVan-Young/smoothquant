@@ -143,6 +143,40 @@ class W8A8Linear(nn.Module):
         return f"W8A8Linear({self.in_features}, {self.out_features}, bias={self.bias is not None}, weight_quant={self.weight_quant_name}, act_quant={self.act_quant_name}, output_quant={self.output_quant_name})"
 
 
+class QuantMatmul(nn.Module):
+
+    def __init__(
+        self,
+        act_quant="per_token",
+        quantize_output=False,
+    ):
+        super().__init__()
+
+        if act_quant == "per_token":
+            self.act_quant_name = "per_token"
+            self.act_quant = partial(quantize_activation_per_token_absmax, n_bits=8)
+        elif act_quant == "per_tensor":
+            self.act_quant_name = "per_tensor"
+            self.act_quant = partial(quantize_activation_per_tensor_absmax, n_bits=8)
+        else:
+            raise ValueError(f"Invalid act_quant: {act_quant}")
+
+        if quantize_output:
+            self.output_quant_name = self.act_quant_name
+            self.output_quant = self.act_quant
+        else:
+            self.output_quant_name = "None"
+            self.output_quant = lambda x: x
+
+    @torch.no_grad()
+    def forward(self, a, b):
+        q_a = self.act_quant(a)
+        q_b = self.act_quant(b)
+        y = torch.matmul(q_a, q_b)
+        q_y = self.output_quant(y)
+
+        return q_y
+
 def quantize_opt(
     model, weight_quant="per_tensor", act_quant="per_tensor", quantize_bmm_input=True
 ):
