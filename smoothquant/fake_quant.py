@@ -44,6 +44,15 @@ def quantize_activation_per_tensor_absmax(t, n_bits=8):
     t.div_(scales).round_().mul_(scales)
     return t
 
+@torch.no_grad()
+def perturb_sc_error(t, mean=0.0238, std=0.1502):
+    """
+        Introduce error due to stochastic computing
+    """
+    error = torch.normal(1 + mean, std, size=t.shape, device=t.device, dtype=t.dtype)
+    t.mul_(error)
+    return t
+
 
 class W8A8Linear(nn.Module):
     def __init__(
@@ -53,6 +62,7 @@ class W8A8Linear(nn.Module):
         bias=True,
         act_quant="per_token",
         quantize_output=False,
+        sc_error=True,
     ):
         super().__init__()
         self.in_features = in_features
@@ -93,6 +103,8 @@ class W8A8Linear(nn.Module):
             self.output_quant_name = "None"
             self.output_quant = lambda x: x
 
+        self.sc_error = sc_error
+
     def to(self, *args, **kwargs):
         super(W8A8Linear, self).to(*args, **kwargs)
         self.weight = self.weight.to(*args, **kwargs)
@@ -106,9 +118,9 @@ class W8A8Linear(nn.Module):
         y = torch.functional.F.linear(q_x, self.weight, self.bias)
         q_y = self.output_quant(y)
 
-        # Stochastic Computing: we introduce error term in all linear layers
-        # error = torch.normal(1, 0.1, size=q_y.shape, device=q_y.device, dtype=q_y.dtype)
-        # q_y = q_y * error
+        # Introduce error from stochastic computing
+        if self.sc_error:
+            q_y = perturb_sc_error(q_y)
 
         return q_y
 
@@ -149,6 +161,7 @@ class QuantMatmul(nn.Module):
         self,
         act_quant="per_token",
         quantize_output=False,
+        sc_error=True,
     ):
         super().__init__()
 
@@ -168,12 +181,18 @@ class QuantMatmul(nn.Module):
             self.output_quant_name = "None"
             self.output_quant = lambda x: x
 
+        self.sc_error = sc_error
+
     @torch.no_grad()
     def forward(self, a, b):
         q_a = self.act_quant(a)
         q_b = self.act_quant(b)
         y = torch.matmul(q_a, q_b)
         q_y = self.output_quant(y)
+
+        # Introduce error from stochastic computing
+        if self.sc_error:
+            q_y = perturb_sc_error(q_y)
 
         return q_y
 
