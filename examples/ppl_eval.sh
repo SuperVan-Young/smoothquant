@@ -1,37 +1,37 @@
-# llama-7B
-CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
-    --alpha 0.85 \
-    --model_path /datasets/llama-hf/llama-7b-meta/ \
-    --act_scales_path act_scales/llama-7b-meta.pt \
-    --smooth \
-    --quantize
+# # llama-7B
+# CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
+#     --alpha 0.85 \
+#     --model_path /datasets/llama-hf/llama-7b-meta/ \
+#     --act_scales_path act_scales/llama-7b-meta.pt \
+#     --smooth \
+#     --quantize
 
-# llama-13B
-CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
-    --alpha 0.85 \
-    --model_path /datasets/llama-hf/llama-13b-meta/ \
-    --act_scales_path act_scales/llama-13b-meta.pt \
-    --smooth \
-    --quantize
+# # llama-13B
+# CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
+#     --alpha 0.85 \
+#     --model_path /datasets/llama-hf/llama-13b-meta/ \
+#     --act_scales_path act_scales/llama-13b-meta.pt \
+#     --smooth \
+#     --quantize
 
-# llama-30B
-CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
-    --alpha 0.85 \
-    --model_path /datasets/llama-hf/llama-30b-meta/ \
-    --act_scales_path act_scales/llama-30b-meta.pt \
-    --smooth \
-    --quantize
+# # llama-30B
+# CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
+#     --alpha 0.85 \
+#     --model_path /datasets/llama-hf/llama-30b-meta/ \
+#     --act_scales_path act_scales/llama-30b-meta.pt \
+#     --smooth \
+#     --quantize
 
-# llama-65B
-CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
-    --alpha 0.85 \
-    --model_path /datasets/llama-hf/llama-65b-meta/ \
-    --act_scales_path act_scales/llama-65b-meta.pt \
-    --smooth \
-    --quantize
+# # llama-65B
+# CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
+#     --alpha 0.85 \
+#     --model_path /datasets/llama-hf/llama-65b-meta/ \
+#     --act_scales_path act_scales/llama-65b-meta.pt \
+#     --smooth \
+#     --quantize
 
 # opt-6.7B
-CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
+CUDA_VISIBLE_DEVICES=2 python smoothquant/ppl_eval.py \
     --alpha 0.85 \
     --model_path /datasets/opt/6.7b \
     --act_scales_path act_scales/opt-6.7b.pt \
@@ -39,7 +39,7 @@ CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
     --quantize
 
 # opt-13B
-CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
+CUDA_VISIBLE_DEVICES=2,3 python smoothquant/ppl_eval.py \
     --alpha 0.85 \
     --model_path /datasets/opt/13b \
     --act_scales_path act_scales/opt-13b.pt \
@@ -47,7 +47,7 @@ CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
     --quantize
 
 # opt-30B
-CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
+CUDA_VISIBLE_DEVICES=2,3 python smoothquant/ppl_eval.py \
     --alpha 0.85 \
     --model_path /datasets/opt/30b \
     --act_scales_path act_scales/opt-30b.pt \
@@ -55,7 +55,7 @@ CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
     --quantize
 
 # opt-66B
-CUDA_VISIBLE_DEVICES=2,3,4,5,6,7 python smoothquant/ppl_eval.py \
+CUDA_VISIBLE_DEVICES=2,3,4,5 python smoothquant/ppl_eval.py \
     --alpha 0.85 \
     --model_path /datasets/opt/66b \
     --act_scales_path act_scales/opt-66b.pt \
