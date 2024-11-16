@@ -21,6 +21,12 @@ parser.add_argument("--n_samples", type=int, default=None)
 parser.add_argument("--smooth", action="store_true")
 parser.add_argument("--quantize", action="store_true")
 
+parser.add_argument("--sc_mu", type=float, default=0.0)
+parser.add_argument("--sc_sigma", type=float, default=1)
+parser.add_argument("--linear_sc_error", action='store_true', default=False)
+parser.add_argument("--qk_sc_error", action='store_true', default=False)
+parser.add_argument("--pv_sc_error", action='store_true', default=False)
+
 
 args = parser.parse_args()
 alpha = args.alpha
@@ -79,6 +85,11 @@ if args.quantize:
         weight_quant="per_channel",
         act_quant="per_token",
         quantize_bmm_input=True,
+        sc_mu=args.sc_mu,
+        sc_sigma=args.sc_sigma,
+        linear_sc_error=args.linear_sc_error,
+        qk_sc_error=args.qk_sc_error,
+        pv_sc_error=args.qv_sc_error,
     )
 
 ppl = evaluator.evaluate(model)
