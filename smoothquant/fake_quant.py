@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from functools import partial
+from typing import Callable
 
 
 @torch.no_grad()
@@ -46,7 +47,7 @@ def quantize_activation_per_tensor_absmax(t, n_bits=8):
     return t
 
 @torch.no_grad()
-def perturb_sc_error(t, mean=0.0238, std=0.1502):
+def perturb_sc_error(t, mean=0, std=1):
     """
         Introduce error due to stochastic computing
     """
@@ -63,7 +64,7 @@ class W8A8Linear(nn.Module):
         bias=True,
         act_quant="per_token",
         quantize_output=False,
-        sc_error=True,
+        sc_error=None,
     ):
         super().__init__()
         self.in_features = in_features
@@ -104,7 +105,7 @@ class W8A8Linear(nn.Module):
             self.output_quant_name = "None"
             self.output_quant = lambda x: x
 
-        self.sc_error = sc_error
+        self.sc_error = sc_error if sc_error is not None else lambda x: x
 
     def to(self, *args, **kwargs):
         super(W8A8Linear, self).to(*args, **kwargs)
@@ -120,14 +121,13 @@ class W8A8Linear(nn.Module):
         q_y = self.output_quant(y)
 
         # Introduce error from stochastic computing
-        if self.sc_error:
-            q_y = perturb_sc_error(q_y)
+        q_y = self.sc_error(q_y)
 
         return q_y
 
     @staticmethod
     def from_float(
-        module, weight_quant="per_channel", act_quant="per_token", quantize_output=False
+        module, weight_quant="per_channel", act_quant="per_token", quantize_output=False, sc_error=None
     ):
         assert isinstance(module, torch.nn.Linear)
         new_module = W8A8Linear(
@@ -136,6 +136,7 @@ class W8A8Linear(nn.Module):
             module.bias is not None,
             act_quant=act_quant,
             quantize_output=quantize_output,
+            sc_error=sc_error,
         )
         if weight_quant == "per_channel":
             new_module.weight = quantize_weight_per_channel_absmax(
@@ -162,7 +163,7 @@ class QuantMatmul(nn.Module):
         self,
         act_quant="per_token",
         quantize_output=False,
-        sc_error=True,
+        sc_error=None,
     ):
         super().__init__()
 
@@ -182,18 +183,17 @@ class QuantMatmul(nn.Module):
             self.output_quant_name = "None"
             self.output_quant = lambda x: x
 
-        self.sc_error = sc_error
+        self.sc_error = sc_error if sc_error is not None else lambda x: x
 
     @torch.no_grad()
     def forward(self, a, b):
         q_a = self.act_quant(a)
         q_b = self.act_quant(b)
-        y = torch.matmul(q_a, q_b)
+        y = torch.bmm(q_a, q_b)
         q_y = self.output_quant(y)
 
         # Introduce error from stochastic computing
-        if self.sc_error:
-            q_y = perturb_sc_error(q_y)
+        q_y = self.sc_error(q_y)
 
         return q_y
 
@@ -212,6 +212,9 @@ class QuantOPTAttention(nn.Module):
         org_module: OPTAttention,
         weight_quant: str = 'per_tensor',
         act_quant: str = 'per_tensor',
+        linear_sc_error: Callable = None,
+        qk_sc_error: Callable = None,
+        pv_sc_error: Callable = None,
     ):
         super().__init__()
         self.embed_dim = org_module.embed_dim
@@ -233,25 +236,31 @@ class QuantOPTAttention(nn.Module):
             org_module.q_proj,
             weight_quant=weight_quant,
             act_quant=act_quant,
+            sc_error=linear_sc_error,
         )
         self.k_proj = W8A8Linear.from_float(
             org_module.k_proj,
             weight_quant=weight_quant,
             act_quant=act_quant,
+            sc_error=linear_sc_error,
         )
         self.v_proj = W8A8Linear.from_float(
             org_module.v_proj,
             weight_quant=weight_quant,
             act_quant=act_quant,
+            sc_error=linear_sc_error,
         )
         self.out_proj = W8A8Linear.from_float(
-            org_module.out_proj, weight_quant=weight_quant, act_quant=act_quant
+            org_module.out_proj, weight_quant=weight_quant, act_quant=act_quant,
+            sc_error=linear_sc_error,
         )
         self.qkt_matmul = QuantMatmul(
             act_quant=act_quant,
+            sc_error=qk_sc_error,
         )
         self.pv_matmul = QuantMatmul(
             act_quant=act_quant,
+            sc_error=pv_sc_error,
         )
 
         self.use_weight_quant = False
@@ -386,7 +395,10 @@ class QuantOPTAttention(nn.Module):
 
 
 def quantize_opt(
-    model, weight_quant="per_tensor", act_quant="per_tensor", quantize_bmm_input=True
+    model, weight_quant="per_tensor", act_quant="per_tensor", quantize_bmm_input=True,
+    linear_sc_error: Callable = None,
+    qk_sc_error: Callable = None,
+    pv_sc_error: Callable = None,
 ):
     from transformers.models.opt.modeling_opt import (
         OPTAttention,
@@ -397,13 +409,14 @@ def quantize_opt(
         if isinstance(m, OPTDecoderLayer):
             print("Quantizing OPTDecoderLayer")
             m.fc1 = W8A8Linear.from_float(
-                m.fc1, weight_quant=weight_quant, act_quant=act_quant
+                m.fc1, weight_quant=weight_quant, act_quant=act_quant, sc_error=linear_sc_error
             )
             m.fc2 = W8A8Linear.from_float(
-                m.fc2, weight_quant=weight_quant, act_quant=act_quant
+                m.fc2, weight_quant=weight_quant, act_quant=act_quant, sc_error=linear_sc_error
             )
             m.self_attn = QuantOPTAttention(
-                m.self_attn, weight_quant=weight_quant, act_quant=act_quant
+                m.self_attn, weight_quant=weight_quant, act_quant=act_quant,
+                linear_sc_error=linear_sc_error, qk_sc_error=qk_sc_error, pv_sc_error=pv_sc_error,
             )
         # elif isinstance(m, OPTAttention):
         #     # Her we simulate quantizing BMM inputs by quantizing the output of q_proj, k_proj, v_proj
@@ -562,7 +575,11 @@ def quantize_falcon(
 
 
 def quantize_model(
-    model, weight_quant="per_channel", act_quant="per_token", quantize_bmm_input=False
+    model, weight_quant="per_channel", act_quant="per_token", quantize_bmm_input=False,
+    sc_mu: float = 0, sc_sigma: float = 1,
+    linear_sc_error: bool = False,
+    qk_sc_error: bool = False,
+    pv_sc_error: bool = False,
 ):
     from transformers.models.opt.modeling_opt import OPTPreTrainedModel
     from transformers.models.llama.modeling_llama import LlamaPreTrainedModel
@@ -570,12 +587,17 @@ def quantize_model(
     from transformers.models.mixtral.modeling_mixtral import MixtralPreTrainedModel
     from transformers.models.falcon.modeling_falcon import FalconPreTrainedModel
 
+    sc_func = partial(perturb_sc_error, mean=sc_mu, std=sc_sigma)
+
     if isinstance(model, OPTPreTrainedModel):
         return quantize_opt(
             model,
             weight_quant=weight_quant,
             act_quant=act_quant,
             quantize_bmm_input=quantize_bmm_input,
+            linear_sc_error=sc_func if linear_sc_error else None,
+            qk_sc_error=sc_func if qk_sc_error else None,
+            pv_sc_error=sc_func if pv_sc_error else None,
         )
     elif isinstance(model, (LlamaPreTrainedModel, MistralPreTrainedModel)):
         return quantize_llama_like(
