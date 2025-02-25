@@ -89,7 +89,7 @@ if args.quantize:
         sc_sigma=args.sc_sigma,
         linear_sc_error=args.linear_sc_error,
         qk_sc_error=args.qk_sc_error,
-        pv_sc_error=args.qv_sc_error,
+        pv_sc_error=args.pv_sc_error,
     )
 
 ppl = evaluator.evaluate(model)
